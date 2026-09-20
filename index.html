@@ -150,25 +150,74 @@
         cardVar.className = varPct < 0 ? 'text-red' : 'text-blue';
     }
 
+    function normalizarNumero(valor) {
+        if (valor === undefined || valor === null) return NaN;
+        let s = String(valor).trim().replace(/R\$\s?/g, '').replace(/%/g, '');
+        if (!s) return NaN;
+        if (s.includes(',') && s.includes('.')) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (s.includes(',')) {
+            s = s.replace(',', '.');
+        }
+        return parseFloat(s);
+    }
+
+    function extrairPvpDaLinha(celulas) {
+        const textos = celulas.map(x => String(x).trim().toUpperCase());
+        const indicePvp = textos.findIndex(x => x === 'P/VP' || x === 'P / VP' || x === 'PVP');
+        if (indicePvp >= 0 && indicePvp + 1 < textos.length) {
+            const v = normalizarNumero(celulas[indicePvp + 1]);
+            if (v > 0.1 && v < 3.5) return v;
+        }
+        return NaN;
+    }
+
     function processarTabelaMensal() {
         const txt = document.getElementById('texto-ranking').value;
         if (!txt.trim()) return alert('Cole os dados antes.');
-        const linhas = txt.split('\n'); let enc = 0;
+
+        const linhas = txt.split(/\r?\n/);
+        let enc = 0;
+        const tickersCarteira = new Set(meusFiis.map(f => f.ticker.toUpperCase()));
+
+        // Formato tabular: procura ticker e P/VP na mesma linha.
         for (let i = 0; i < linhas.length; i++) {
-            const l = linhas[i].trim().toUpperCase(); const m = l.match(/^([A-Z]{4}11)/);
-            if (m) {
-                const t = m[1];
-                for (let j = i + 1; j < Math.min(i + 15, líneas.length); j++) {
-                    const vTxt = linhas[j].trim().replace(',', '.');
-                    if (/^\d+\.\d+\(/.test(vTxt) \vert{}\vert{} /^\d+\)/.test(vTxt)) {
-                        const v = parseFloat(vTxt);
-                        if (v > 0.1 && v < 3.5) { pvpMensal[t] = v; enc++; break; }
-                    }
+            const linha = linhas[i].trim();
+            if (!linha) continue;
+
+            const celulas = linha.split(/\t+/).map(x => x.trim());
+            const tickerCelula = celulas.find(x => /^[A-Z]{4}11$/i.test(x));
+            if (!tickerCelula) continue;
+
+            const ticker = tickerCelula.toUpperCase();
+            if (!tickersCarteira.has(ticker)) continue;
+
+            let pvp = extrairPvpDaLinha(celulas);
+
+            // Caso o ticker esteja em uma linha e o P/VP apareça logo abaixo,
+            // procura nas próximas linhas.
+            if (isNaN(pvp)) {
+                for (let j = i + 1; j < Math.min(i + 5, linhas.length); j++) {
+                    pvp = extrairPvpDaLinha(linhas[j].split(/\t+/).map(x => x.trim()));
+                    if (!isNaN(pvp)) break;
                 }
             }
+
+            if (!isNaN(pvp)) {
+                pvpMensal[ticker] = pvp;
+                enc++;
+            }
         }
-        salvarDados(); renderizar(); fecharModal('modal-tabela');
-        alert(`P/VP de ${enc} fundos atualizados com sucesso!`);
+
+        salvarDados();
+        renderizar();
+        fecharModal('modal-tabela');
+
+        if (enc > 0) {
+            alert(`P/VP de ${enc} fundo(s) da sua carteira foi/foram atualizado(s) com sucesso!`);
+        } else {
+            alert('Nenhum P/VP foi identificado. Verifique se a tabela copiada contém o ticker e a coluna P/VP.');
+        }
     }
 
     function abrirModalAdd() {
@@ -193,7 +242,7 @@
         const p = parseFloat(document.getElementById('fii-pm').value);
         const cotM = parseFloat(document.getElementById('fii-cotacao-manual').value);
         const idx = document.getElementById('edit-index').value;
-        if (!t || isNaN(c) || isNaN(p) || isNaN(cotM)) return alert('Preencha os campos corretamente.');
+        if (!t || !/^\w{4}11$/.test(t) || isNaN(c) || c <= 0 || isNaN(p) || p < 0 || isNaN(cotM) || cotM < 0) return alert('Preencha os campos corretamente.');
         const obj = { ticker: t, cotas: c, pm: p, cotacao: cotM };
         if (idx === '') meusFiis.push(obj); else meusFiis[idx] = obj;
         salvarDados(); renderizar(); fecharModal('modal-fii');
@@ -202,7 +251,7 @@
     function excluirFII(idx) { if (confirm(`Remover ${meusFiis[idx].ticker}?`)) { meusFiis.splice(idx, 1); salvarDados(); renderizar(); } }
     function abrirModalTabela() { document.getElementById('modal-tabela').style.display = 'flex'; }
     function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
-    function atualizarPainelManual() { alert('Painel atualizado!'); renderizar(); }
+    function atualizarPainelManual() { salvarDados(); renderizar(); alert('Painel atualizado com os dados salvos neste navegador.'); }
 
     renderizar();
 </script>
