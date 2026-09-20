@@ -106,10 +106,29 @@
         { ticker: 'KNSC11', cotas: 1089, pm: 8.67, cotacao: 8.67 }
     ];
 
-    let meusFiis = JSON.parse(localStorage.getItem('meusFiis')) || carteiraInicial;
-    let pvpMensal = JSON.parse(localStorage.getItem('pvpMensal')) || {};
+    function lerLocalStorage(chave, padrao) {
+        try {
+            const valor = localStorage.getItem(chave);
+            return valor ? JSON.parse(valor) : padrao;
+        } catch (erro) {
+            console.warn('Não foi possível ler ' + chave + '. Usando dados padrão.', erro);
+            return padrao;
+        }
+    }
 
-    function salvarDados() { localStorage.setItem('meusFiis', JSON.stringify(meusFiis)); localStorage.setItem('pvpMensal', JSON.stringify(pvpMensal)); }
+    function salvarDados() {
+        try {
+            localStorage.setItem('meusFiis', JSON.stringify(meusFiis));
+            localStorage.setItem('pvpMensal', JSON.stringify(pvpMensal));
+        } catch (erro) {
+            console.warn('Não foi possível salvar no LocalStorage.', erro);
+        }
+    }
+
+    let meusFiis = lerLocalStorage('meusFiis', carteiraInicial.map(f => ({...f})));
+    let pvpMensal = lerLocalStorage('pvpMensal', {});
+    if (!Array.isArray(meusFiis)) meusFiis = carteiraInicial.map(f => ({...f}));
+    if (!pvpMensal || typeof pvpMensal !== 'object' || Array.isArray(pvpMensal)) pvpMensal = {};
     function formatar(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0); }
 
     function obtenerStatus(pvp) {
