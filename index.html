@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Painel FIIs - Holder</title>
+    <style>
+        body {
+            background-color: #121214;
+            color: #e1e1e6;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container { max-width: 1280px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+        h1 { color: #04d361; margin: 0; font-size: 28px; }
+        
+        .btn-group { display: flex; gap: 12px; }
+        button {
+            background-color: #202024;
+            color: #fff;
+            border: 1px solid #4d4d57;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        button:hover { background-color: #29292e; border-color: #04d361; color: #04d361; }
+        
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background-color: #202024;
+            padding: 22px;
+            border-radius: 8px;
+            border: 1px solid #29292e;
+        }
+        .card h3 { margin: 0 0 10px 0; font-size: 13px; color: #a8a8b3; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card p { margin: 0; font-size: 26px; font-weight: bold; }
+        .text-blue { color: #00b0ff; }
+        .text-red { color: #f75a68; }
+
+        .table-responsive { overflow-x: auto; background-color: #202024; border-radius: 8px; border: 1px solid #29292e; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #29292e; }
+        th { background-color: #29292e; color: #a8a8b3; font-size: 13px; font-weight: 600; text-transform: uppercase; }
+        
+        .highlight-row { background-color: #3a1e22 !important; }
+        
+        .status-container { display: flex; align-items: center; gap: 8px; }
+        .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+        .dot-green { background-color: #04d361; }
+        .dot-gray { background-color: #7c7c8a; }
+        
+        .actions { display: flex; gap: 15px; font-size: 16px; }
+        .btn-action { cursor: pointer; transition: transform 0.1s; }
+        .btn-action:hover { transform: scale(1.2); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #202024; padding: 25px; border-radius: 8px; width: 90%; max-width: 450px; border: 1px solid #4d4d57; }
+        .modal-content h2 { margin-top: 0; color: #04d361; font-size: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #a8a8b3; font-size: 14px; }
+        .form-group input, .modal-content textarea { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #4d4d57; background: #121214; color: #fff; box-sizing: border-box; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        
+        textarea { height: 150px; resize: vertical; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Painel Estratégico de FIIs 📊</h1>
+        <div class="btn-group">
+            <button onclick="abrirModalAdd()">+ Adicionar FII</button>
+            <button onclick="atualizarCotacoes()">Atualizar Painel</button>
+            <button onclick="abrirModalTabela()">Tabela Mensal FIIs</button>
+        </div>
+    </header>
+
+    <div class="dashboard-cards">
+        <div class="card">
+            <h3>Patrimônio Total Investido</h3>
+            <p id="card-investido">R$ 0,00</p>
+        </div>
+        <div class="card">
+            <h3>Patrimônio a Mercado</h3>
+            <p id="card-mercado">R$ 0,00</p>
+        </div>
+        <div class="card">
+            <h3>Variação Patrimonial</h3>
+            <p id="card-variacao">0,00%</p>
+        </div>
+        <div class="card">
+            <h3>Número de FIIs</h3>
+            <p id="card-qtd">0</p>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>FII</th>
+                    <th>Cotas</th>
+                    <th>PM</th>
+                    <th>Cotação</th>
+                    <th>P/VP</th>
+                    <th>Patrimônio</th>
+                    <th>% Patr.</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabela-corpo"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="modal-fii" class="modal">
+    <div class="modal-content">
+        <h2 id="modal-titulo">Adicionar Novo Ativo</h2>
+        <input type="hidden" id="edit-index">
+        <div class="form-group">
+            <label>Ticker (Ex: BTLG11)</label>
+            <input type="text" id="fii-ticker" style="text-transform: uppercase;">
+        </div>
+        <div class="form-group">
+            <label>Quantidade de Cotas</label>
+            <input type="number" id="fii-cotas" step="1">
+        </div>
+        <div class="form-group">
+            <label>Preço Médio (PM)</label>
+            <input type="number" id="fii-pm" step="0.01">
+        </div>
+        <div class="modal-actions">
+            <button onclick="fecharModal('modal-fii')" style="background:transparent; border:none; color:#fff; cursor:pointer;">Cancelar</button>
+            <button onclick="salvarFII()" style="background:#04d361; color:#000; border:none; padding:10px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-tabela" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <h2>Colar Tabela do Funds Explorer</h2>
+        <p style="font-size:13px; color:#a8a8b3; margin-bottom:15px;">Acesse o Ranking do Funds Explorer, selecione toda a tabela da página com o mouse (Ctrl+A), copie (Ctrl+C) e cole no campo abaixo (Ctrl+V).</p>
+        <textarea id="texto-ranking" placeholder="Cole os dados copiados do site aqui..."></textarea>
+        <div class="modal-actions">
+            <button onclick="fecharModal('modal-tabela')" style="background:transparent; border:none; color:#fff; cursor:pointer;">Cancelar</button>
+            <button onclick="processarTabelaMensal()" style="background:#04d361; color:#000; border:none; padding:10px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">Processar Dados</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const carteiraInicial = [
+        { ticker: 'BTLG11', cotas: 514, pm: 100.79 },
+        { ticker: 'KNRI11', cotas: 289, pm: 156.82 },
+        { ticker: 'ALZR11', cotas: 3234, pm: 10.28 },
+        { ticker: 'HGRE11', cotas: 273, pm: 118.95 },
+        { ticker: 'LVBI11', cotas: 310, pm: 101.74 },
+        { ticker: 'BRCO11', cotas: 298, pm: 112.20 },
+        { ticker: 'HSML11', cotas: 365, pm: 88.88 },
+        { ticker: 'PMLL11', cotas: 289, pm: 104.55 },
+        { ticker: 'FATN11', cotas: 323, pm: 78.83 },
+        { ticker: 'TRXF11', cotas: 287, pm: 95.15 },
+        { ticker: 'HSLG11', cotas: 287, pm: 91.03 },
+        { ticker: 'HGRU11', cotas: 218, pm: 120.74 },
+        { ticker: 'JURO11', cotas: 205, pm: 99.57 },
+        { ticker: 'CDII11', cotas: 203, pm: 108.08 },
+        { ticker: 'BTCI11', cotas: 2107, pm: 9.20 },
+        { ticker: 'AFHI11', cotas: 184, pm: 94.39 },
+        { ticker: 'HGLG11', cotas: 112, pm: 154.28 },
+        { ticker: 'CRAA11', cotas: 171, pm: 95.44 },
+        { ticker: 'KNSC11', cotas: 1089, pm: 8.67 }
+    ];
+
+    let meusFiis = JSON.parse(localStorage.getItem('meusFiis')) || carteiraInicial;
+    let cotacoesAtuais = JSON.parse(localStorage.getItem('cotacoesAtuais')) || {};
+    let pvpMensal = JSON.parse(localStorage.getItem('pvpMensal')) || {};
+
+    function salvarNoArmazenamento() {
+        localStorage.setItem('meusFiis', JSON.stringify(meusFiis));
+        localStorage.setItem('cotacoesAtuais', JSON.stringify(cotacoesAtuais));
+        localStorage.setItem('pvpMensal', JSON.stringify(pvpMensal));
+    }
+
+    function formatarMoeda(valor) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+    }
+
+    function obterTextoStatus(pvp) {
+        if (!pvp || pvp === 0) return 'Sem Dados';
+        if (pvp > 1.0) return 'Caro (P/VP > 1,0)';
+        if (pvp === 1.0) return 'Justo (P/VP = 1,0)';
+        if (pvp >= 0.95 && pvp <= 0.99) return 'Bom (P/VP entre 0,95 e 0,99)';
+        if (pvp >= 0.90 && pvp <= 0.94) return 'Muito bom (P/VP entre 0,90 e 0,94)';
+        if (pvp >= 0.85 && pvp <= 0.89) return 'Ótimo (P/VP entre 0,85 e 0,89)';
+        if (pvp < 0.84) return 'Excelente (P/VP < 0,84)';
+        return 'Regular';
+    }
+
+    function renderizarPainel() {
+        const corpo = document.getElementById('tabela-corpo');
+        corpo.innerHTML = '';
+
+        let totalInvestido = 0;
+        let totalMercado = 0;
+
+        meusFiis.forEach(fii => {
+            const cotacao = cotacoesAtuais[fii.ticker] || fii.pm;
+            totalInvestido += fii.cotas * fii.pm;
+            totalMercado += fii.cotas * cotacao;
+        });
+
+        meusFiis.forEach((fii, index) => {
+            const cotacao = cotacoesAtuais[fii.ticker] || fii.pm;
+            const pvp = pvpMensal[fii.ticker] || 0;
+            const patrimonioIndividual = fii.cotas * cotacao;
+            const percentualPatrimonio = totalMercado > 0 ? (patrimonioIndividual / totalMercado) * 100 : 0;
+
+            const corBolinha = cotacao < fii.pm ? 'dot-green' : 'dot-gray';
+            const textoStatus = obterTextoStatus(pvp);
+
+            const linha = document.createElement('tr');
+            if (cotacao < fii.pm && pvp > 0 && pvp < 0.89) {
+                linha.className = 'highlight-row';
+            }
+
+            linha.innerHTML = `
+                <td><b>${fii.ticker}</b></td>
+                <td>${fii.cotas}</td>
+                <td>${formatarMoeda(fii.pm)}</td>
+                <td>${formatarMoeda(cotacao)}</td>
+                <td>${pvp > 0 ? pvp.toFixed(2) : '---'}</td>
+                <td>${formatarMoeda(patrimonioIndividual)}</td>
+                <td>${percentualPatrimonio.toFixed(2)}%</td>
+                <td>
+                    <div class="status-container">
+                        <span class="dot ${corBolinha}"></span>
+                        <span>${textoStatus}</span>
+                    </div>
+                </td>
+                <td class="actions">
+                    <span class="btn-action btn-edit" onclick="editarFII(${index})">✏️</span>
+                    <span class="btn-action btn-delete" onclick="excluirFII(${index})">🗑️</span>
+                </td>
+            `;
+            corpo.appendChild(linha);
+        });
+
+        document.getElementById('card-investido').innerText = formatarMoeda(totalInvestido);
+        document.getElementById('card-mercado').innerText = formatarMoeda(totalMercado);
+        document.getElementById('card-qtd').innerText = meusFiis.length;
+
+        const variacao = totalInvestido > 0 ? ((totalMercado / totalInvestido) - 1) * 100 : 0;
+        const cardVariacao = document.getElementById('card-variacao');
+        cardVariacao.innerText = (variacao >= 0 ? '+' : '') + variacao.toFixed(2) + '%';
+        cardVariacao.className = variacao < 0 ? 'text-red' : 'text-blue';
+    }
+
+    async function atualizarCotacoes() {
+        if (meusFiis.length === 0) return;
+        const tickersList = meusFiis.map(fii => fii.ticker).join(',');
+        try {
+            const resposta = await fetch(`https://brapi.dev/api/quote/${tickersList}`);
+            const dados = await resposta.json();
+            if (dados && dados.results) {
+                dados.results.forEach(resultado => {
+                    if (resultado.regularMarketPrice) {
+                        cotacoesAtuais[resultado.symbol] = resultado.regularMarketPrice;
+                    }
+                });
+                salvarNoArmazenamento();
+                renderizarPainel();
+            }
+        } catch (erro) {
+            console.log('Erro ao buscar cotações online.');
+        }
+    }
+
+    function processarTabelaMensal() {
+        const texto = document.getElementById('texto-ranking').value;
+        if (!texto.trim()) {
+            alert('Por favor, cole os dados antes de processar.');
+            return;
+        }
+
+        const linhas = texto.split('
+');
+        let dadosEncontrados = 0;
+
+        for (let i = 0; i < linhas.length; i++) {
+            const trecho = linhas[i].trim().toUpperCase();
+            const matchTicker = trecho.match(/^([A-Z]{4}11)/);
+            if (matchTicker) {
+                const ticker = matchTicker;
+                for (let j = i + 1; j < Math.min(i + 15, linhas.length); j++) {
+                    const valorTexto = linhas[j].trim().replace(',', '.');
+                    if (/^\d+\.\d+$/.test(valorTexto) || /^\d+$/.test(valorTexto)) {
+                        const pvpValor = parseFloat(valorTexto);
+                        if (pvpValor > 0.1 && pvpValor < 3.5) {
+                            pvpMensal[ticker] = pvpValor;
+                            dadosEncontrados++;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        salvarNoArmazenamento();
+        renderizarPainel();
+        fecharModal('modal-tabela');
+        alert(`Sucesso! P/VP de ${dadosEncontrados} fundos atualizados.`);
+    }
+
+    function abrirModalAdd() {
+        document.getElementById('modal-titulo').innerText = 'Adicionar Novo Ativo';
+        document.getElementById('edit-index').value = '';
+        document.getElementById('fii-ticker').value = '';
+        document.getElementById('fii-cotas').value = '';
+        document.getElementById('fii-pm').value = '';
+        document.getElementById('modal-fii').style.display = 'flex';
+    }
+
+    function editarFII(index) {
+        const fii = meusFiis[index];
+        document.getElementById('modal-titulo').innerText = 'Editar Ativo';
+        document.getElementById('edit-index').value = index;
+        document.getElementById('fii-ticker').value = fii.ticker;
+        document.getElementById('fii-cotas').value = fii.cotas;
+        document.getElementById('fii-pm').value = fii.pm;
+        document.getElementById('modal-fii').style.display = 'flex';
+    }
+
+    function salvarFII() {
+        const ticker = document.getElementById('fii-ticker').value.trim().toUpperCase();
+        const cotas = parseInt(document.getElementById('fii-cotas').value);
+        const pm = parseFloat(document.getElementById('fii-pm').value);
+        const index = document.getElementById('edit-index').value;
+
+        if (!ticker || isNaN(cotas) || isNaN(pm)) {
+            alert('Preencha todos os campos corretamente.');
+            return;
+        }
+
+        const dadosAtivo = { ticker, cotas, pm };
+        if (index === '') {
+            meusFiis.push(dadosAtivo);
+        } else {
+            meusFiis[index] = dadosAtivo;
+        }
+
+        salvarNoArmazenamento();
+        renderizarPainel();
+        fecharModal('modal-fii');
+    }
+
+    function excluirFII(index) {
+        if (confirm(`Remover ${meusFiis[index].ticker}?`)) {
+            meusFiis.splice(index, 1);
+            salvarNoArmazenamento();
+            renderizarPainel();
+        }
+    }
+
+    function abrirModalTabela() { document.getElementById('modal-tabela').style.display = 'flex'; }
+    function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    renderizarPainel();
+    atualizarCotacoes();
+</script>
+
+</body>
+</html>
