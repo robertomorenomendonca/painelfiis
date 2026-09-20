@@ -270,33 +270,10 @@
     function excluirFII(idx) { if (confirm(`Remover ${meusFiis[idx].ticker}?`)) { meusFiis.splice(idx, 1); salvarDados(); renderizar(); } }
     function abrirModalTabela() { document.getElementById('modal-tabela').style.display = 'flex'; }
     function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
-    async function atualizarPainelManual() {
-    if (!meusFiis || meusFiis.length === 0) {
-        alert('Adicione pelo menos um FII antes de atualizar o painel!');
-        return;
-    }
-    const listaTickers = meusFiis.map(f => f.ticker.trim().toUpperCase()).join(',');
-    try {
-        const resposta = await fetch(`https://brapi.dev{listaTickers}`);
-        const dados = await resposta.json();
-        if (dados && dados.results) {
-            dados.results.forEach(resultado => {
-                if (resultado.regularMarketPrice) {
-                    const fiiAlvo = meusFiis.find(f => f.ticker.toUpperCase() === resultado.symbol.toUpperCase());
-                    if (fiiAlvo) {
-                        fiiAlvo.cotacao = resultado.regularMarketPrice;
-                    }
-                }
-            });
-            salvarDados(); 
-            renderizar();
-            alert('Painel atualizado com sucesso com as cotações em tempo real! 🚀');
-        }
-    } catch (erro) {
-        alert('Erro ao buscar preços online. Verifique sua conexão e tente novamente.');
-    }
+    function atualizarPainelManual() {
+    renderizar();
+    alert('Painel atualizado e recalculado com sucesso! 🚀');
 }
-
 
     renderizar();
 </script>
